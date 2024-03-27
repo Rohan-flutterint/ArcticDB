@@ -38,7 +38,7 @@ def get_empty_series():
 
 
 def get_csv_df():
-    meta = {"meta": pd.Timestamp("2024-03-04", tz=pytz.UTC)}
+    meta = {"meta": pd.Timestamp("2024-03-04", tz="America/New_York")}
     buf = io.StringIO("2023-11-27 00:00:00,0.73260,0.73260,0.73260,0.73260,7")
 
     df = pd.read_csv(buf, parse_dates=[0], index_col=0, header=None)
@@ -104,13 +104,13 @@ def get_test_libraries(ac=None):
 
 
 def assert_tz_equal(meta_expected, meta_actual):
-    assert meta_actual.tz.tzname(meta_actual) == meta_expected.tzname(
-        meta_expected
-    ) or str(meta_actual.tzinfo) == str(meta_expected)
+    assert meta_actual.tzname() == meta_expected.tzname() or str(
+        meta_actual.tzinfo
+    ) == str(meta_expected.tzinfo)
     if meta_expected is not None:
-        assert meta_actual.tzinfo.utcoffset(meta_actual) == meta_expected.utcoffset(
-            meta_expected
-        )
+        assert meta_actual.tzinfo.utcoffset(
+            meta_actual
+        ) == meta_expected.tzinfo.utcoffset(meta_expected)
 
 
 def read_persistent_library(lib):
