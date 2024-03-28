@@ -151,7 +151,7 @@ def is_strategy_branch_valid_format(input_string):
 def write_persistent_library(lib, latest: bool = False):
     for df, sym, meta in get_basic_dfs():
         lib.write(sym, df, metadata=meta)
-        lib.append(sym, df)
+        lib.append(sym, df, metadata=meta)
 
     series, sym = get_empty_series()
     lib.write(sym, series)
