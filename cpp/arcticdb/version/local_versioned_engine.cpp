@@ -257,7 +257,6 @@ std::optional<VersionedItem> LocalVersionedEngine::get_specific_version(
         });
         if (index_key != index_keys.end()) {
             ARCTICDB_DEBUG(log::version(), "Found version {} for symbol {} in snapshot:", version_id, stream_id);
-//            key = *index_key;
             return VersionedItem{std::move(*index_key)};
         } else {
             ARCTICDB_DEBUG(log::version(), "get_specific_version: "
