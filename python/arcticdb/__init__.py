@@ -4,6 +4,7 @@ import sys as _sys
 
 from arcticdb.arctic import Arctic
 from arcticdb.options import LibraryOptions
+from arcticdb.version_store.lazy_dataframe import LazyDataFrame
 from arcticdb.version_store.processing import QueryBuilder
 from arcticdb.version_store._store import VersionedItem
 import arcticdb.version_store.library as library

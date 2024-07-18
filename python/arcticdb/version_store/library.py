@@ -18,6 +18,7 @@ from arcticdb.options import \
 from arcticdb.supported_types import Timestamp
 from arcticdb.util._versions import IS_PANDAS_TWO
 
+from arcticdb.version_store.lazy_dataframe import LazyDataFrame
 from arcticdb.version_store.processing import QueryBuilder
 from arcticdb.version_store._store import NativeVersionStore, VersionedItem, VersionQueryInput
 from arcticdb_ext.exceptions import ArcticException
@@ -990,7 +991,8 @@ class Library:
         row_range: Optional[Tuple[int, int]] = None,
         columns: Optional[List[str]] = None,
         query_builder: Optional[QueryBuilder] = None,
-    ) -> VersionedItem:
+        lazy: bool = False,
+    ) -> Union[VersionedItem, LazyDataFrame]:
         """
         Read data for the named symbol.  Returns a VersionedItem object with a data and metadata element (as passed into
         write).
@@ -1034,9 +1036,14 @@ class Library:
             A QueryBuilder object to apply to the dataframe before it is returned. For more information see the
             documentation for the QueryBuilder class (``from arcticdb import QueryBuilder; help(QueryBuilder)``).
 
+        lazy: bool, default=False:
+            Defer query execution until `collect` is called on the returned `LazyDataFrame` object. See documentation
+            on `LazyDataFrame` for more details.
+
         Returns
         -------
-        VersionedItem object that contains a .data and .metadata element
+        If lazy is False, VersionedItem object that contains a .data and .metadata element.
+        If lazy is True, a LazyDataFrame object on which further querying can be performed prior to collect.
 
         Examples
         --------
@@ -1057,14 +1064,24 @@ class Library:
         1       6
         2       7
         """
-        return self._nvs.read(
-            symbol=symbol,
-            as_of=as_of,
-            date_range=date_range,
-            row_range=row_range,
-            columns=columns,
-            query_builder=query_builder,
-        )
+        if lazy:
+            return LazyDataFrame(
+                self,
+                symbol=symbol,
+                as_of=as_of,
+                date_range=date_range,
+                row_range=row_range,
+                columns=columns,
+            )
+        else:
+            return self._nvs.read(
+                symbol=symbol,
+                as_of=as_of,
+                date_range=date_range,
+                row_range=row_range,
+                columns=columns,
+                query_builder=query_builder,
+            )
 
     def read_batch(
         self, symbols: List[Union[str, ReadRequest]], query_builder: Optional[QueryBuilder] = None
