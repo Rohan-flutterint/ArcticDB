@@ -60,6 +60,38 @@ def test_lazy_filter(lmdb_library):
     assert_frame_equal(expected, received)
 
 
+def test_lazy_head(lmdb_library):
+    lib = lmdb_library
+    sym = "test_lazy_head"
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    lib.write(sym, df)
+
+    lazy_df = lib.head(sym, 4, lazy=True)
+    lazy_df = lazy_df[lazy_df["col1"] >= 2]
+    received = lazy_df.collect().data
+    expected = df.iloc[2:4]
+
+    assert_frame_equal(expected, received)
+
+
+def test_lazy_tail(lmdb_library):
+    lib = lmdb_library
+    sym = "test_lazy_tail"
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    lib.write(sym, df)
+
+    lazy_df = lib.tail(sym, 4, lazy=True)
+    lazy_df = lazy_df[lazy_df["col1"] <= 7]
+    received = lazy_df.collect().data
+    expected = df.iloc[6:8]
+
+    assert_frame_equal(expected, received)
+
+
 def test_lazy_apply(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_apply"
@@ -166,7 +198,7 @@ def test_lazy_batch_one_query(lmdb_library):
     )
     for sym in syms:
         lib.write(sym, df)
-    lazy_dfs = LazyDataFrameCollection(lib.read_batch(syms, lazy=True))
+    lazy_dfs = lib.read_batch(syms, lazy=True)
     lazy_dfs = lazy_dfs[lazy_dfs["col1"].isin(0, 3, 6, 9)]
     received = lazy_dfs.collect()
     expected = df.query("col1 in [0, 3, 6, 9]")
@@ -183,9 +215,7 @@ def test_lazy_batch_collect_separately(lmdb_library):
     for sym in syms:
         lib.write(sym, df)
     lazy_dfs = lib.read_batch(syms, lazy=True)
-    lazy_df_0 = lazy_dfs[0]
-    lazy_df_1 = lazy_dfs[1]
-    lazy_df_2 = lazy_dfs[2]
+    lazy_df_0, lazy_df_1, lazy_df_2 = lazy_dfs.split()
     lazy_df_0 = lazy_df_0[lazy_df_0["col1"].isin(0, 3, 6, 9)]
     lazy_df_2 = lazy_df_2[lazy_df_2["col1"].isin(2, 4, 8)]
     expected_0 = df.query("col1 in [0, 3, 6, 9]")
@@ -207,7 +237,7 @@ def test_lazy_batch_separate_queries_collect_together(lmdb_library):
     )
     for sym in syms:
         lib.write(sym, df)
-    lazy_dfs = lib.read_batch(syms, lazy=True)
+    lazy_dfs = lib.read_batch(syms, lazy=True).split()
     lazy_df_0 = lazy_dfs[0]
     lazy_df_2 = lazy_dfs[2]
     lazy_df_0 = lazy_df_0[lazy_df_0["col1"].isin(0, 3, 6, 9)]

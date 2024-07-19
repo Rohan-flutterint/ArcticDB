@@ -300,7 +300,12 @@ class LazyDataFrame(QueryBuilder):
             lib,
             read_request,
     ):
-        super().__init__()
+        if read_request.query_builder is None:
+            super().__init__()
+        else:
+            self.clauses = read_request.query_builder.clauses
+            self._python_clauses = read_request.query_builder._python_clauses
+            self._optimisation = read_request.query_builder._optimisation
         self.lib = lib
         self.read_request = read_request
 
@@ -1265,7 +1270,7 @@ class Library:
                         )
                     )
                 )
-            return res
+            return LazyDataFrameCollection(res)
         else:
             return self._nvs._batch_read_to_versioned_items(
                 symbol_strings, as_ofs, date_ranges, row_ranges, columns, query_builder or query_builders, throw_on_error
@@ -1671,7 +1676,14 @@ class Library:
             for v in versions
         }
 
-    def head(self, symbol: str, n: int = 5, as_of: Optional[AsOf] = None, columns: List[str] = None) -> VersionedItem:
+    def head(
+            self,
+            symbol: str,
+            n: int = 5,
+            as_of: Optional[AsOf] = None,
+            columns: List[str] = None,
+            lazy: bool = False,
+    ) -> VersionedItem:
         """
         Read the first n rows of data for the named symbol. If n is negative, return all rows except the last n rows.
 
@@ -1690,10 +1702,27 @@ class Library:
         -------
         VersionedItem object that contains a .data and .metadata element.
         """
-        return self._nvs.head(symbol=symbol, n=n, as_of=as_of, columns=columns)
+        if lazy:
+            q = QueryBuilder()._head(n)
+            return LazyDataFrame(
+                self,
+                ReadRequest(
+                    symbol=symbol,
+                    as_of=as_of,
+                    columns=columns,
+                    query_builder=q,
+                ),
+            )
+        else:
+            return self._nvs.head(symbol=symbol, n=n, as_of=as_of, columns=columns)
 
     def tail(
-        self, symbol: str, n: int = 5, as_of: Optional[Union[int, str]] = None, columns: List[str] = None
+        self,
+            symbol: str,
+            n: int = 5,
+            as_of: Optional[Union[int, str]] = None,
+            columns: List[str] = None,
+            lazy: bool = False,
     ) -> VersionedItem:
         """
         Read the last n rows of data for the named symbol. If n is negative, return all rows except the first n rows.
@@ -1713,7 +1742,19 @@ class Library:
         -------
         VersionedItem object that contains a .data and .metadata element.
         """
-        return self._nvs.tail(symbol=symbol, n=n, as_of=as_of, columns=columns)
+        if lazy:
+            q = QueryBuilder()._tail(n)
+            return LazyDataFrame(
+                self,
+                ReadRequest(
+                    symbol=symbol,
+                    as_of=as_of,
+                    columns=columns,
+                    query_builder=q,
+                ),
+            )
+        else:
+            return self._nvs.tail(symbol=symbol, n=n, as_of=as_of, columns=columns)
 
     @staticmethod
     def _info_to_desc(info: Dict[str, Any]) -> SymbolDescription:
