@@ -19,19 +19,19 @@ class LazyDataFrame(QueryBuilder):
             columns,
     ):
         super().__init__()
-        self.lib = lib
-        self.symbol = symbol
-        self.as_of = as_of
-        self.date_range = date_range
-        self.row_range = row_range
-        self.columns = columns
+        self._lib = lib
+        self._symbol = symbol
+        self._as_of = as_of
+        self._date_range = date_range
+        self._row_range = row_range
+        self._columns = columns
 
     def collect(self):
-        return self.lib.read(
-            self.symbol,
-            self.as_of,
-            self.date_range,
-            self.row_range,
-            self.columns,
+        return self._lib.read(
+            self._symbol,
+            self._as_of,
+            self._date_range,
+            self._row_range,
+            self._columns,
             self,
         )
