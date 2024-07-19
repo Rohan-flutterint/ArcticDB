@@ -15,10 +15,10 @@ from numpy import datetime64
 
 from arcticdb.options import \
     LibraryOptions, EnterpriseLibraryOptions, ModifiableLibraryOption, ModifiableEnterpriseLibraryOption
+from arcticdb.preconditions import check
 from arcticdb.supported_types import Timestamp
 from arcticdb.util._versions import IS_PANDAS_TWO
 
-from arcticdb.version_store.lazy_dataframe import LazyDataFrame
 from arcticdb.version_store.processing import QueryBuilder
 from arcticdb.version_store._store import NativeVersionStore, VersionedItem, VersionQueryInput
 from arcticdb_ext.exceptions import ArcticException
@@ -285,6 +285,63 @@ class ReadInfoRequest(NamedTuple):
 
     symbol: str
     as_of: Optional[AsOf] = None
+
+
+# TODO: typing
+# TODO: repr
+class LazyDataFrame(QueryBuilder):
+    def __init__(
+            self,
+            lib,
+            read_request,
+    ):
+        super().__init__()
+        self.lib = lib
+        self.read_request = read_request
+
+    def to_read_request(self):
+        return ReadRequest(
+            symbol=self.read_request.symbol,
+            as_of=self.read_request.as_of,
+            date_range=self.read_request.date_range,
+            row_range=self.read_request.row_range,
+            columns=self.read_request.columns,
+            query_builder=self,
+        )
+
+    def collect(self):
+        check(self.lib is not None, "Cannot collect individual LazyDataFrames created with read_batch")
+        return self.lib.read(**self.to_read_request()._asdict())
+
+
+class LazyDataFrameCollection(QueryBuilder):
+    def __init__(
+            self,
+            lazy_dataframes,
+    ):
+        check(
+            len(set([lazy_dataframe.lib for lazy_dataframe in lazy_dataframes])) in [0, 1],
+            "LazyDataFrameCollection init requires all provided lazy dataframes to be referring to the same library"
+        )
+        super().__init__()
+        self._lazy_dataframes = lazy_dataframes
+        if len(self._lazy_dataframes):
+            self._lib = self._lazy_dataframes[0].lib
+
+    def split(self):
+        return self._lazy_dataframes
+
+    def collect(self):
+        if self._lib is None:
+            return []
+        read_requests = [lazy_dataframe.to_read_request() for lazy_dataframe in self._lazy_dataframes]
+        if len(self.clauses):
+            for read_request in read_requests:
+                if read_request.query_builder is None:
+                    read_request.query_builder = QueryBuilder()
+                read_request.query_builder.then(self)
+
+        return self._lib.read_batch(read_requests)
 
 
 class StagedDataFinalizeMethod(Enum):
@@ -1067,11 +1124,13 @@ class Library:
         if lazy:
             return LazyDataFrame(
                 self,
-                symbol=symbol,
-                as_of=as_of,
-                date_range=date_range,
-                row_range=row_range,
-                columns=columns,
+                ReadRequest(
+                    symbol=symbol,
+                    as_of=as_of,
+                    date_range=date_range,
+                    row_range=row_range,
+                    columns=columns,
+                ),
             )
         else:
             return self._nvs.read(
@@ -1084,7 +1143,10 @@ class Library:
             )
 
     def read_batch(
-        self, symbols: List[Union[str, ReadRequest]], query_builder: Optional[QueryBuilder] = None
+        self,
+        symbols: List[Union[str, ReadRequest]],
+        query_builder: Optional[QueryBuilder] = None,
+        lazy: bool = False,
     ) -> List[Union[VersionedItem, DataError]]:
         """
         Reads multiple symbols.
@@ -1179,9 +1241,30 @@ class Library:
                     " [ReadRequest] are supported."
                 )
         throw_on_error = False
-        return self._nvs._batch_read_to_versioned_items(
-            symbol_strings, as_ofs, date_ranges, row_ranges, columns, query_builder or query_builders, throw_on_error
-        )
+        if lazy:
+            res = []
+            for idx in range(len(symbol_strings)):
+                q = query_builder
+                if q is None and len(query_builders):
+                    q = query_builders[idx]
+                res.append(
+                    LazyDataFrame(
+                        self,
+                        ReadRequest(
+                            symbol=symbol_strings[idx],
+                            as_of=as_ofs[idx],
+                            date_range=date_ranges[idx],
+                            row_range=row_ranges[idx],
+                            columns=columns[idx],
+                            query_builder=q,
+                        )
+                    )
+                )
+            return res
+        else:
+            return self._nvs._batch_read_to_versioned_items(
+                symbol_strings, as_ofs, date_ranges, row_ranges, columns, query_builder or query_builders, throw_on_error
+            )
 
     def read_metadata(self, symbol: str, as_of: Optional[AsOf] = None) -> VersionedItem:
         """

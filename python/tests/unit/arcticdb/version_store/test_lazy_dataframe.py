@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from arcticdb import LazyDataFrame, LazyDataFrameCollection
 from arcticdb.util.test import assert_frame_equal
 
 
@@ -21,6 +22,7 @@ def test_lazy_read(lmdb_library):
     lib.write(sym, df)
 
     lazy_df = lib.read(sym, lazy=True)
+    assert isinstance(lazy_df, LazyDataFrame)
     received = lazy_df.collect().data
 
     assert_frame_equal(df, received)
@@ -138,3 +140,67 @@ def test_lazy_chaining(lmdb_library):
     expected = df.resample("us").agg({"col": "sum"})
     expected["new_col"] = expected["col"] * 3
     assert_frame_equal(expected, received, check_dtype=False)
+
+
+def test_lazy_batch_one_query(lmdb_library):
+    lib = lmdb_library
+    syms = [f"test_lazy_batch_one_query_{idx}" for idx in range(3)]
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    for sym in syms:
+        lib.write(sym, df)
+    lazy_dfs = LazyDataFrameCollection(lib.read_batch(syms, lazy=True))
+    lazy_dfs = lazy_dfs[lazy_dfs["col1"].isin(0, 3, 6, 9)]
+    received = lazy_dfs.collect()
+    expected = df.query("col1 in [0, 3, 6, 9]")
+    for vit in received:
+        assert_frame_equal(expected, vit.data)
+
+
+def test_lazy_batch_collect_separately(lmdb_library):
+    lib = lmdb_library
+    syms = [f"test_lazy_batch_collect_separately_{idx}" for idx in range(3)]
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    for sym in syms:
+        lib.write(sym, df)
+    lazy_dfs = lib.read_batch(syms, lazy=True)
+    lazy_df_0 = lazy_dfs[0]
+    lazy_df_1 = lazy_dfs[1]
+    lazy_df_2 = lazy_dfs[2]
+    lazy_df_0 = lazy_df_0[lazy_df_0["col1"].isin(0, 3, 6, 9)]
+    lazy_df_2 = lazy_df_2[lazy_df_2["col1"].isin(2, 4, 8)]
+    expected_0 = df.query("col1 in [0, 3, 6, 9]")
+    expected_1 = df
+    expected_2 = df.query("col1 in [2, 4, 8]")
+    received_0 = lazy_df_0.collect().data
+    received_1 = lazy_df_1.collect().data
+    received_2 = lazy_df_2.collect().data
+    assert_frame_equal(expected_0, received_0)
+    assert_frame_equal(expected_1, received_1)
+    assert_frame_equal(expected_2, received_2)
+
+
+def test_lazy_batch_separate_queries_collect_together(lmdb_library):
+    lib = lmdb_library
+    syms = [f"test_lazy_batch_separate_queries_collect_together_{idx}" for idx in range(3)]
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    for sym in syms:
+        lib.write(sym, df)
+    lazy_dfs = lib.read_batch(syms, lazy=True)
+    lazy_df_0 = lazy_dfs[0]
+    lazy_df_2 = lazy_dfs[2]
+    lazy_df_0 = lazy_df_0[lazy_df_0["col1"].isin(0, 3, 6, 9)]
+    lazy_df_2 = lazy_df_2[lazy_df_2["col1"].isin(2, 4, 8)]
+    expected_0 = df.query("col1 in [0, 3, 6, 9]")
+    expected_1 = df
+    expected_2 = df.query("col1 in [2, 4, 8]")
+
+    received = LazyDataFrameCollection(lazy_dfs).collect()
+    assert_frame_equal(expected_0, received[0].data)
+    assert_frame_equal(expected_1, received[1].data)
+    assert_frame_equal(expected_2, received[2].data)
