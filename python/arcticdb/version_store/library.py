@@ -292,8 +292,6 @@ def Col(name):
     return ExpressionNode.column_ref(name)
 
 
-# TODO: typing
-# TODO: repr
 class LazyDataFrame(QueryBuilder):
     def __init__(
             self,
@@ -320,7 +318,6 @@ class LazyDataFrame(QueryBuilder):
         )
 
     def collect(self):
-        check(self.lib is not None, "Cannot collect individual LazyDataFrames created with read_batch")
         return self.lib.read(**self.to_read_request()._asdict())
 
 
@@ -329,9 +326,10 @@ class LazyDataFrameCollection(QueryBuilder):
             self,
             lazy_dataframes,
     ):
+        lib_set = set([lazy_dataframe.lib for lazy_dataframe in lazy_dataframes])
         check(
-            len(set([lazy_dataframe.lib for lazy_dataframe in lazy_dataframes])) in [0, 1],
-            "LazyDataFrameCollection init requires all provided lazy dataframes to be referring to the same library"
+            len(lib_set) in [0, 1],
+            f"LazyDataFrameCollection init requires all provided lazy dataframes to be referring to the same library, but received:\n{[lib for lib in lib_set]}"
         )
         super().__init__()
         self._lazy_dataframes = lazy_dataframes
