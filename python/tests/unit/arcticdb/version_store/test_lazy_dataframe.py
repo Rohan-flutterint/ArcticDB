@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from arcticdb import LazyDataFrame, LazyDataFrameCollection
+from arcticdb import Col, LazyDataFrame, LazyDataFrameCollection
 from arcticdb.util.test import assert_frame_equal
 
 
@@ -60,9 +60,9 @@ def test_lazy_filter(lmdb_library):
     assert_frame_equal(expected, received)
 
 
-def test_lazy_apply_1(lmdb_library):
+def test_lazy_apply(lmdb_library):
     lib = lmdb_library
-    sym = "test_lazy_apply_1"
+    sym = "test_lazy_apply"
     df = pd.DataFrame(
         {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
     )
@@ -77,9 +77,25 @@ def test_lazy_apply_1(lmdb_library):
     assert_frame_equal(expected, received)
 
 
-def test_lazy_apply_2(lmdb_library):
+def test_lazy_apply_inline_col(lmdb_library):
     lib = lmdb_library
-    sym = "test_lazy_apply_2"
+    sym = "test_lazy_apply_inline_col"
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    lib.write(sym, df)
+
+    lazy_df = lib.read(sym, lazy=True).apply("new_col", Col("col1") + Col("col2"))
+    received = lazy_df.collect().data
+    expected = df
+    expected["new_col"] = expected["col1"] + expected["col2"]
+
+    assert_frame_equal(expected, received)
+
+
+def test_lazy_project(lmdb_library):
+    lib = lmdb_library
+    sym = "test_lazy_project"
     df = pd.DataFrame(
         {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
     )

@@ -19,7 +19,7 @@ from arcticdb.preconditions import check
 from arcticdb.supported_types import Timestamp
 from arcticdb.util._versions import IS_PANDAS_TWO
 
-from arcticdb.version_store.processing import QueryBuilder
+from arcticdb.version_store.processing import ExpressionNode, QueryBuilder
 from arcticdb.version_store._store import NativeVersionStore, VersionedItem, VersionQueryInput
 from arcticdb_ext.exceptions import ArcticException
 from arcticdb_ext.version_store import DataError
@@ -285,6 +285,11 @@ class ReadInfoRequest(NamedTuple):
 
     symbol: str
     as_of: Optional[AsOf] = None
+
+
+# Placeholder for inlining lazy dataframe operations
+def Col(name):
+    return ExpressionNode.column_ref(name)
 
 
 # TODO: typing

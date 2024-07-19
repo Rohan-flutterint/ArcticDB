@@ -14,6 +14,7 @@ from arcticdb.version_store.library import (
     WritePayload,
     ReadInfoRequest,
     ReadRequest,
+    Col,
     LazyDataFrame,
     LazyDataFrameCollection,
     StagedDataFinalizeMethod,
