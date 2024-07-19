@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from arcticdb import Col, LazyDataFrame, LazyDataFrameCollection
+from arcticdb import Col, LazyDataFrame, LazyDataFrameCollection, QueryBuilder, ReadRequest
 from arcticdb.util.test import assert_frame_equal
 
 
@@ -20,12 +20,14 @@ def test_lazy_read(lmdb_library):
         {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
+    lib.write_pickle(sym, 1)
 
-    lazy_df = lib.read(sym, lazy=True)
+    lazy_df = lib.read(sym, as_of=0, date_range=(pd.Timestamp("2000-01-03"), pd.Timestamp("2000-01-07")), columns=["col2"], lazy=True)
     assert isinstance(lazy_df, LazyDataFrame)
     received = lazy_df.collect().data
+    expected = lib.read(sym, as_of=0, date_range=(pd.Timestamp("2000-01-03"), pd.Timestamp("2000-01-07")), columns=["col2"]).data
 
-    assert_frame_equal(df, received)
+    assert_frame_equal(expected, received)
 
 
 def test_lazy_date_range(lmdb_library):
@@ -190,6 +192,33 @@ def test_lazy_chaining(lmdb_library):
     assert_frame_equal(expected, received, check_dtype=False)
 
 
+def test_lazy_batch_read(lmdb_library):
+    lib = lmdb_library
+    sym_0 = "test_lazy_batch_read_0"
+    sym_1 = "test_lazy_batch_read_1"
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    lib.write(sym_0, df)
+    lib.write_pickle(sym_0, 1)
+    lib.write(sym_1, df)
+
+    read_request_0 = ReadRequest(
+        symbol=sym_0,
+        as_of=0,
+        date_range=(pd.Timestamp("2000-01-03"), pd.Timestamp("2000-01-07")),
+        columns=["col2"],
+    )
+
+    lazy_dfs = lib.read_batch([read_request_0, sym_1], lazy=True)
+    assert isinstance(lazy_dfs, LazyDataFrameCollection)
+    received = lazy_dfs.collect()
+    expected_0 = lib.read(sym_0, as_of=0, date_range=(pd.Timestamp("2000-01-03"), pd.Timestamp("2000-01-07")), columns=["col2"]).data
+    expected_1 = lib.read(sym_1).data
+    assert_frame_equal(expected_0, received[0].data)
+    assert_frame_equal(expected_1, received[1].data)
+
+
 def test_lazy_batch_one_query(lmdb_library):
     lib = lmdb_library
     syms = [f"test_lazy_batch_one_query_{idx}" for idx in range(3)]
@@ -247,6 +276,39 @@ def test_lazy_batch_separate_queries_collect_together(lmdb_library):
     expected_2 = df.query("col1 in [2, 4, 8]")
 
     received = LazyDataFrameCollection(lazy_dfs).collect()
+    assert_frame_equal(expected_0, received[0].data)
+    assert_frame_equal(expected_1, received[1].data)
+    assert_frame_equal(expected_2, received[2].data)
+
+
+def test_lazy_batch_complex(lmdb_library):
+    lib = lmdb_library
+    syms = [f"test_lazy_batch_complex_{idx}" for idx in range(3)]
+    df = pd.DataFrame(
+        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+    )
+    for sym in syms:
+        lib.write(sym, df)
+    # Start with one query for all syms
+    q = QueryBuilder()
+    q = q[q["col1"] > 0]
+    lazy_dfs = lib.read_batch(syms, query_builder=q, lazy=True).split()
+    # Apply a different projection to each sym
+    for idx, lazy_df in enumerate(lazy_dfs):
+        lazy_df.apply(f"new_col", Col("col1") * idx)
+    # Collapse back together and apply another projection to all syms
+    lazy_dfs = LazyDataFrameCollection(lazy_dfs)
+    lazy_dfs["shared_new_col"] = lazy_dfs["new_col"] + 10
+    received = lazy_dfs.collect()
+    expected_0 = df.iloc[1:]
+    expected_0["new_col"] = expected_0["col1"] * 0
+    expected_0["shared_new_col"] = expected_0["new_col"] + 10
+    expected_1 = df.iloc[1:]
+    expected_1["new_col"] = expected_1["col1"] * 1
+    expected_1["shared_new_col"] = expected_1["new_col"] + 10
+    expected_2 = df.iloc[1:]
+    expected_2["new_col"] = expected_2["col1"] * 2
+    expected_2["shared_new_col"] = expected_2["new_col"] + 10
     assert_frame_equal(expected_0, received[0].data)
     assert_frame_equal(expected_1, received[1].data)
     assert_frame_equal(expected_2, received[2].data)
