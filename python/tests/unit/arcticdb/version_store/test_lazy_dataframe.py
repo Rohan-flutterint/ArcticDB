@@ -292,23 +292,29 @@ def test_lazy_batch_complex(lmdb_library):
     # Start with one query for all syms
     q = QueryBuilder()
     q = q[q["col1"] > 0]
-    lazy_dfs = lib.read_batch(syms, query_builder=q, lazy=True).split()
+    lazy_dfs = lib.read_batch(syms, query_builder=q, lazy=True)
+    # Apply the same projection to all syms
+    lazy_dfs["shared_new_col_1"] = lazy_dfs["col2"] * 2
+    lazy_dfs = lazy_dfs.split()
     # Apply a different projection to each sym
     for idx, lazy_df in enumerate(lazy_dfs):
         lazy_df.apply(f"new_col", col("col1") * idx)
     # Collapse back together and apply another projection to all syms
     lazy_dfs = LazyDataFrameCollection(lazy_dfs)
-    lazy_dfs["shared_new_col"] = lazy_dfs["new_col"] + 10
+    lazy_dfs["shared_new_col_2"] = lazy_dfs["new_col"] + 10
     received = lazy_dfs.collect()
     expected_0 = df.iloc[1:]
+    expected_0["shared_new_col_1"] = expected_0["col2"] * 2
     expected_0["new_col"] = expected_0["col1"] * 0
-    expected_0["shared_new_col"] = expected_0["new_col"] + 10
+    expected_0["shared_new_col_2"] = expected_0["new_col"] + 10
     expected_1 = df.iloc[1:]
+    expected_1["shared_new_col_1"] = expected_1["col2"] * 2
     expected_1["new_col"] = expected_1["col1"] * 1
-    expected_1["shared_new_col"] = expected_1["new_col"] + 10
+    expected_1["shared_new_col_2"] = expected_1["new_col"] + 10
     expected_2 = df.iloc[1:]
+    expected_2["shared_new_col_1"] = expected_2["col2"] * 2
     expected_2["new_col"] = expected_2["col1"] * 2
-    expected_2["shared_new_col"] = expected_2["new_col"] + 10
+    expected_2["shared_new_col_2"] = expected_2["new_col"] + 10
     assert_frame_equal(expected_0, received[0].data)
     assert_frame_equal(expected_1, received[1].data)
     assert_frame_equal(expected_2, received[2].data)

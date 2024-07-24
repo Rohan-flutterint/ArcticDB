@@ -351,7 +351,13 @@ class LazyDataFrameCollection(QueryBuilder):
             self._lib = self._lazy_dataframes[0].lib
 
     def split(self):
-        return self._lazy_dataframes
+        read_requests = [lazy_dataframe.to_read_request() for lazy_dataframe in self._lazy_dataframes]
+        if len(self.clauses):
+            for read_request in read_requests:
+                if read_request.query_builder is None:
+                    read_request.query_builder = QueryBuilder()
+                read_request.query_builder.then(self)
+        return [LazyDataFrame(self._lib, read_request) for read_request in read_requests]
 
     def collect(self):
         if self._lib is None:
