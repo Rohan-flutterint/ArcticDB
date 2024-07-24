@@ -288,7 +288,7 @@ class ReadInfoRequest(NamedTuple):
 
 
 # Placeholder for inlining lazy dataframe operations
-def Col(name):
+def col(name):
     return ExpressionNode.column_ref(name)
 
 

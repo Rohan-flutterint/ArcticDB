@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from arcticdb import Col, LazyDataFrame, LazyDataFrameCollection, QueryBuilder, ReadRequest
+from arcticdb import col, LazyDataFrame, LazyDataFrameCollection, QueryBuilder, ReadRequest
 from arcticdb.util.test import assert_frame_equal
 
 
@@ -17,7 +17,7 @@ def test_lazy_read(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_read"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
     lib.write_pickle(sym, 1)
@@ -34,7 +34,7 @@ def test_lazy_date_range(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_date_range"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
@@ -50,7 +50,7 @@ def test_lazy_filter(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_filter"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
@@ -66,7 +66,7 @@ def test_lazy_head(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_head"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
@@ -82,7 +82,7 @@ def test_lazy_tail(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_tail"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
@@ -98,7 +98,7 @@ def test_lazy_apply(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_apply"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
@@ -115,11 +115,11 @@ def test_lazy_apply_inline_col(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_apply_inline_col"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
-    lazy_df = lib.read(sym, lazy=True).apply("new_col", Col("col1") + Col("col2"))
+    lazy_df = lib.read(sym, lazy=True).apply("new_col", col("col1") + col("col2"))
     received = lazy_df.collect().data
     expected = df
     expected["new_col"] = expected["col1"] + expected["col2"]
@@ -131,7 +131,7 @@ def test_lazy_project(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_project"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
@@ -147,7 +147,7 @@ def test_lazy_project(lmdb_library):
 def test_lazy_groupby(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_groupby"
-    df = pd.DataFrame({"col1": [0, 1, 0, 1, 2, 2], "col2": np.arange(6)})
+    df = pd.DataFrame({"col1": [0, 1, 0, 1, 2, 2], "col2": np.arange(6, dtype=np.int64)})
     lib.write(sym, df)
 
     lazy_df = lib.read(sym, lazy=True)
@@ -163,7 +163,7 @@ def test_lazy_resample(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_resample"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym, df)
 
@@ -180,7 +180,7 @@ def test_lazy_chaining(lmdb_library):
     sym = "test_lazy_chaining"
     idx = [0, 1, 2, 3, 1000, 1001]
     idx = np.array(idx, dtype="datetime64[ns]")
-    df = pd.DataFrame({"col": np.arange(6)}, index=idx)
+    df = pd.DataFrame({"col": np.arange(6, dtype=np.int64)}, index=idx)
     lib.write(sym, df)
 
     lazy_df = lib.read(sym, lazy=True).resample("us").agg({"col": "sum"})
@@ -197,7 +197,7 @@ def test_lazy_batch_read(lmdb_library):
     sym_0 = "test_lazy_batch_read_0"
     sym_1 = "test_lazy_batch_read_1"
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     lib.write(sym_0, df)
     lib.write_pickle(sym_0, 1)
@@ -223,7 +223,7 @@ def test_lazy_batch_one_query(lmdb_library):
     lib = lmdb_library
     syms = [f"test_lazy_batch_one_query_{idx}" for idx in range(3)]
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     for sym in syms:
         lib.write(sym, df)
@@ -239,7 +239,7 @@ def test_lazy_batch_collect_separately(lmdb_library):
     lib = lmdb_library
     syms = [f"test_lazy_batch_collect_separately_{idx}" for idx in range(3)]
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     for sym in syms:
         lib.write(sym, df)
@@ -262,7 +262,7 @@ def test_lazy_batch_separate_queries_collect_together(lmdb_library):
     lib = lmdb_library
     syms = [f"test_lazy_batch_separate_queries_collect_together_{idx}" for idx in range(3)]
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     for sym in syms:
         lib.write(sym, df)
@@ -285,7 +285,7 @@ def test_lazy_batch_complex(lmdb_library):
     lib = lmdb_library
     syms = [f"test_lazy_batch_complex_{idx}" for idx in range(3)]
     df = pd.DataFrame(
-        {"col1": np.arange(10), "col2": np.arange(100, 110)}, index=pd.date_range("2000-01-01", periods=10)
+        {"col1": np.arange(10, dtype=np.int64), "col2": np.arange(100, 110, dtype=np.int64)}, index=pd.date_range("2000-01-01", periods=10)
     )
     for sym in syms:
         lib.write(sym, df)
@@ -295,7 +295,7 @@ def test_lazy_batch_complex(lmdb_library):
     lazy_dfs = lib.read_batch(syms, query_builder=q, lazy=True).split()
     # Apply a different projection to each sym
     for idx, lazy_df in enumerate(lazy_dfs):
-        lazy_df.apply(f"new_col", Col("col1") * idx)
+        lazy_df.apply(f"new_col", col("col1") * idx)
     # Collapse back together and apply another projection to all syms
     lazy_dfs = LazyDataFrameCollection(lazy_dfs)
     lazy_dfs["shared_new_col"] = lazy_dfs["new_col"] + 10
