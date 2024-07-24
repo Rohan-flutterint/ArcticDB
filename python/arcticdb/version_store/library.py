@@ -265,6 +265,16 @@ class ReadRequest(NamedTuple):
     columns: Optional[List[str]] = None
     query_builder: Optional[QueryBuilder] = None
 
+    def __repr__(self):
+        res = f"ReadRequest(symbol={self.symbol}"
+        res += f",as_of={self.as_of}" if self.as_of is not None else ""
+        res += f",date_range={self.date_range}" if self.date_range is not None else ""
+        res += f",row_range={self.row_range}" if self.row_range is not None else ""
+        res += f",columns={self.columns}" if self.columns is not None else ""
+        res += f",query_builder={self.query_builder}" if self.query_builder is not None else ""
+        res += "))"
+        return res
+
 
 class ReadInfoRequest(NamedTuple):
     """ReadInfoRequest is useful for batch methods like read_metadata_batch and get_description_batch, where we
@@ -295,8 +305,8 @@ def col(name):
 class LazyDataFrame(QueryBuilder):
     def __init__(
             self,
-            lib,
-            read_request,
+            lib: "Library",
+            read_request: ReadRequest,
     ):
         if read_request.query_builder is None:
             super().__init__()
@@ -305,7 +315,7 @@ class LazyDataFrame(QueryBuilder):
             self._python_clauses = read_request.query_builder._python_clauses
             self._optimisation = read_request.query_builder._optimisation
         self.lib = lib
-        self.read_request = read_request
+        self.read_request = read_request._replace(query_builder=None)
 
     def to_read_request(self):
         return ReadRequest(
@@ -320,11 +330,15 @@ class LazyDataFrame(QueryBuilder):
     def collect(self):
         return self.lib.read(**self.to_read_request()._asdict())
 
+    def __str__(self):
+        query_builder_repr = super().__str__()
+        return self.read_request.__repr__() + (" | " if len(query_builder_repr) else "") + query_builder_repr
+
 
 class LazyDataFrameCollection(QueryBuilder):
     def __init__(
             self,
-            lazy_dataframes,
+            lazy_dataframes: List[LazyDataFrame],
     ):
         lib_set = set([lazy_dataframe.lib for lazy_dataframe in lazy_dataframes])
         check(
@@ -1107,8 +1121,9 @@ class Library:
 
         Returns
         -------
-        If lazy is False, VersionedItem object that contains a .data and .metadata element.
-        If lazy is True, a LazyDataFrame object on which further querying can be performed prior to collect.
+        Union[VersionedItem, LazyDataFrame]
+            If lazy is False, VersionedItem object that contains a .data and .metadata element.
+            If lazy is True, a LazyDataFrame object on which further querying can be performed prior to collect.
 
         Examples
         --------
@@ -1155,7 +1170,7 @@ class Library:
         symbols: List[Union[str, ReadRequest]],
         query_builder: Optional[QueryBuilder] = None,
         lazy: bool = False,
-    ) -> List[Union[VersionedItem, DataError]]:
+    ) -> Union[List[Union[VersionedItem, DataError]], LazyDataFrameCollection]:
         """
         Reads multiple symbols.
 
@@ -1168,13 +1183,20 @@ class Library:
             A single QueryBuilder to apply to all the dataframes before they are returned. If this argument is passed
             then none of the ``symbols`` may have their own query_builder specified in their request.
 
+        lazy: bool, default=False:
+            Defer query execution until `collect` is called on the returned `LazyDataFrameCollection` object. See
+            documentation on `LazyDataFrameCollection` for more details.
+
         Returns
         -------
-        List[Union[VersionedItem, DataError]]
+        Union[List[Union[VersionedItem, DataError]], LazyDataFrameCollection]
+            If lazy is False:
             A list of the read results, whose i-th element corresponds to the i-th element of the ``symbols`` parameter.
             If the specified version does not exist, a DataError object is returned, with symbol, version_request_type,
             version_request_data properties, error_code, error_category, and exception_string properties. If a key error or
             any other internal exception occurs, the same DataError object is also returned.
+            If lazy is True:
+            A LazyDataFrameCollection object on which further querying can be performed prior to collection.
 
         Raises
         ------
@@ -1681,7 +1703,7 @@ class Library:
             as_of: Optional[AsOf] = None,
             columns: List[str] = None,
             lazy: bool = False,
-    ) -> VersionedItem:
+    ) -> Union[VersionedItem, LazyDataFrame]:
         """
         Read the first n rows of data for the named symbol. If n is negative, return all rows except the last n rows.
 
@@ -1695,10 +1717,14 @@ class Library:
             See documentation on `read`.
         columns
             See documentation on `read`.
+        lazy : bool, default=False
+            See documentation on `read`.
 
         Returns
         -------
-        VersionedItem object that contains a .data and .metadata element.
+        Union[VersionedItem, LazyDataFrame]
+            If lazy is False, VersionedItem object that contains a .data and .metadata element.
+            If lazy is True, a LazyDataFrame object on which further querying can be performed prior to collect.
         """
         if lazy:
             q = QueryBuilder()._head(n)
@@ -1721,7 +1747,7 @@ class Library:
             as_of: Optional[Union[int, str]] = None,
             columns: List[str] = None,
             lazy: bool = False,
-    ) -> VersionedItem:
+    ) -> Union[VersionedItem, LazyDataFrame]:
         """
         Read the last n rows of data for the named symbol. If n is negative, return all rows except the first n rows.
 
@@ -1735,10 +1761,14 @@ class Library:
             See documentation on `read`.
         columns
             See documentation on `read`.
+        lazy : bool, default=False
+            See documentation on `read`.
 
         Returns
         -------
-        VersionedItem object that contains a .data and .metadata element.
+        Union[VersionedItem, LazyDataFrame]
+            If lazy is False, VersionedItem object that contains a .data and .metadata element.
+            If lazy is True, a LazyDataFrame object on which further querying can be performed prior to collect.
         """
         if lazy:
             q = QueryBuilder()._tail(n)
