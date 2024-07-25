@@ -334,6 +334,10 @@ class LazyDataFrame(QueryBuilder):
         query_builder_repr = super().__str__()
         return self.read_request.__repr__() + (" | " if len(query_builder_repr) else "") + query_builder_repr
 
+    # Needs to be explicitly defined for lists of these objects in LazyDataFrameCollection to render correctly
+    def __repr__(self):
+        return self.__str__()
+
 
 class LazyDataFrameCollection(QueryBuilder):
     def __init__(
@@ -351,25 +355,28 @@ class LazyDataFrameCollection(QueryBuilder):
             self._lib = self._lazy_dataframes[0].lib
 
     def split(self):
-        read_requests = [lazy_dataframe.to_read_request() for lazy_dataframe in self._lazy_dataframes]
-        if len(self.clauses):
-            for read_request in read_requests:
-                if read_request.query_builder is None:
-                    read_request.query_builder = QueryBuilder()
-                read_request.query_builder.then(self)
-        return [LazyDataFrame(self._lib, read_request) for read_request in read_requests]
+        return [LazyDataFrame(self._lib, read_request) for read_request in self._read_requests()]
 
     def collect(self):
         if self._lib is None:
             return []
+        return self._lib.read_batch(self._read_requests())
+
+    def _read_requests(self):
+        # Combines queries for individual LazyDataFrames with the global query associated with this
+        # LazyDataFrameCollection and returns a list of corresponding read requests
         read_requests = [lazy_dataframe.to_read_request() for lazy_dataframe in self._lazy_dataframes]
         if len(self.clauses):
             for read_request in read_requests:
                 if read_request.query_builder is None:
                     read_request.query_builder = QueryBuilder()
                 read_request.query_builder.then(self)
+        return read_requests
 
-        return self._lib.read_batch(read_requests)
+    def __str__(self):
+        query_builder_repr = super().__str__()
+        return str(self._lazy_dataframes) + (" | " if len(query_builder_repr) else "") + query_builder_repr
+
 
 
 class StagedDataFinalizeMethod(Enum):
