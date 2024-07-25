@@ -175,6 +175,25 @@ def test_lazy_resample(lmdb_library):
     assert_frame_equal(expected, received)
 
 
+def test_lazy_with_initial_query_builder(lmdb_library):
+    lib = lmdb_library
+    sym = "test_lazy_chaining"
+    idx = [0, 1, 2, 3, 1000, 1001]
+    idx = np.array(idx, dtype="datetime64[ns]")
+    df = pd.DataFrame({"col": np.arange(6, dtype=np.int64)}, index=idx)
+    lib.write(sym, df)
+
+    q = QueryBuilder().resample("us").agg({"col": "sum"})
+
+    lazy_df = lib.read(sym, query_builder=q, lazy=True)
+    lazy_df["new_col"] = lazy_df["col"] * 3
+    received = lazy_df.collect().data
+
+    expected = df.resample("us").agg({"col": "sum"})
+    expected["new_col"] = expected["col"] * 3
+    assert_frame_equal(expected, received, check_dtype=False)
+
+
 def test_lazy_chaining(lmdb_library):
     lib = lmdb_library
     sym = "test_lazy_chaining"

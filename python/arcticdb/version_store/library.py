@@ -382,7 +382,7 @@ class LazyDataFrame(QueryBuilder):
 class LazyDataFrameCollection(QueryBuilder):
     """
     Lazy dataframe implementation for batch operations. Allows the application of chains of queries to be added before
-    the actual reads are performed. Queries applied to this object will be applied to all of the symnbols being read.
+    the actual reads are performed. Queries applied to this object will be applied to all of the symbols being read.
     If per-symbol queries are required, split can be used to break this class into a list of LazyDataFrame objects.
     Returned by `Library.read_batch` calls when `lazy=True`.
 
@@ -1274,6 +1274,7 @@ class Library:
                     date_range=date_range,
                     row_range=row_range,
                     columns=columns,
+                    query_builder=query_builder,
                 ),
             )
         else:
@@ -1393,12 +1394,12 @@ class Library:
                 )
         throw_on_error = False
         if lazy:
-            res = []
+            lazy_dataframes = []
             for idx in range(len(symbol_strings)):
                 q = copy.deepcopy(query_builder)
                 if q is None and len(query_builders):
                     q = copy.deepcopy(query_builders[idx])
-                res.append(
+                lazy_dataframes.append(
                     LazyDataFrame(
                         self,
                         ReadRequest(
@@ -1411,7 +1412,7 @@ class Library:
                         )
                     )
                 )
-            return LazyDataFrameCollection(res)
+            return LazyDataFrameCollection(lazy_dataframes)
         else:
             return self._nvs._batch_read_to_versioned_items(
                 symbol_strings, as_ofs, date_ranges, row_ranges, columns, query_builder or query_builders, throw_on_error
