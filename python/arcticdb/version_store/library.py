@@ -317,7 +317,7 @@ class LazyDataFrame(QueryBuilder):
         self.lib = lib
         self.read_request = read_request._replace(query_builder=None)
 
-    def to_read_request(self):
+    def to_read_request(self) -> ReadRequest:
         return ReadRequest(
             symbol=self.read_request.symbol,
             as_of=self.read_request.as_of,
@@ -327,15 +327,15 @@ class LazyDataFrame(QueryBuilder):
             query_builder=self,
         )
 
-    def collect(self):
+    def collect(self) -> VersionedItem:
         return self.lib.read(**self.to_read_request()._asdict())
 
-    def __str__(self):
+    def __str__(self) -> str:
         query_builder_repr = super().__str__()
         return self.read_request.__repr__() + (" | " if len(query_builder_repr) else "") + query_builder_repr
 
     # Needs to be explicitly defined for lists of these objects in LazyDataFrameCollection to render correctly
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
 
@@ -354,15 +354,15 @@ class LazyDataFrameCollection(QueryBuilder):
         if len(self._lazy_dataframes):
             self._lib = self._lazy_dataframes[0].lib
 
-    def split(self):
+    def split(self) -> List[LazyDataFrame]:
         return [LazyDataFrame(self._lib, read_request) for read_request in self._read_requests()]
 
-    def collect(self):
+    def collect(self) -> List[Union[VersionedItem, DataError]]:
         if self._lib is None:
             return []
         return self._lib.read_batch(self._read_requests())
 
-    def _read_requests(self):
+    def _read_requests(self) -> List[ReadRequest]:
         # Combines queries for individual LazyDataFrames with the global query associated with this
         # LazyDataFrameCollection and returns a list of corresponding read requests
         read_requests = [lazy_dataframe.to_read_request() for lazy_dataframe in self._lazy_dataframes]
@@ -373,13 +373,12 @@ class LazyDataFrameCollection(QueryBuilder):
                 read_request.query_builder.then(self)
         return read_requests
 
-    def __str__(self):
+    def __str__(self) -> str:
         query_builder_repr = super().__str__()
         return str(self._lazy_dataframes) + (" | " if len(query_builder_repr) else "") + query_builder_repr
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
-
 
 
 class StagedDataFinalizeMethod(Enum):
