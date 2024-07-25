@@ -306,12 +306,27 @@ class ReadInfoRequest(NamedTuple):
         return res
 
 
-# Placeholder for inlining lazy dataframe operations
-def col(name):
-    return ExpressionNode.column_ref(name)
-
-
 class LazyDataFrame(QueryBuilder):
+    """
+    Lazy dataframe implementation, allowing chains of queries to be added before the read is actually executed.
+    Returned by `Library.read` calls when `lazy=True`.
+
+    See Also
+    --------
+    QueryBuilder for supported querying operations.
+
+    Examples
+    --------
+
+    # Specify that we want version 0 of "test" symbol, and to only return the "new_column" column in the output
+    >>> lazy_df = lib.read("test", as_of=0, columns=["new_column"], lazy=True)
+    # Perform a filtering operation
+    >>> lazy_df = lazy_df[lazy_df["col1"].isin(0, 3, 6, 9)]
+    # Create a new column through a projection operation
+    >>> lazy_df["new_col"] = lazy_df["col1"] + lazy_df["col2"]
+    # Actual read and processing happens here
+    >>> df = lazy_df.collect().data
+    """
     def __init__(
             self,
             lib: "Library",
@@ -327,6 +342,14 @@ class LazyDataFrame(QueryBuilder):
         self.read_request = read_request._replace(query_builder=None)
 
     def to_read_request(self) -> ReadRequest:
+        """
+        Convert this object back into a ReadRequest, including any queries applied to this object since the read call.
+
+        Returns
+        -------
+        ReadRequest
+            Object with all of the parameters necessary to completely specify the data to be read.
+        """
         return ReadRequest(
             symbol=self.read_request.symbol,
             as_of=self.read_request.as_of,
@@ -337,6 +360,14 @@ class LazyDataFrame(QueryBuilder):
         )
 
     def collect(self) -> VersionedItem:
+        """
+        Read the data and execute any queries applied to this object since the read call.
+
+        Returns
+        -------
+        VersionedItem
+            Object that contains a .data and .metadata element.
+        """
         return self.lib.read(**self.to_read_request()._asdict())
 
     def __str__(self) -> str:
@@ -349,6 +380,33 @@ class LazyDataFrame(QueryBuilder):
 
 
 class LazyDataFrameCollection(QueryBuilder):
+    """
+    Lazy dataframe implementation for batch operations. Allows the application of chains of queries to be added before
+    the actual reads are performed. Queries applied to this object will be applied to all of the symnbols being read.
+    If per-symbol queries are required, split can be used to break this class into a list of LazyDataFrame objects.
+    Returned by `Library.read_batch` calls when `lazy=True`.
+
+    See Also
+    --------
+    QueryBuilder for supported querying operations.
+
+    Examples
+    --------
+
+    # Specify that we want the latest version of "test_0" symbol, and version 0 of "test_1" symbol
+    >>> lazy_dfs = lib.read_batch(["test_0", ReadRequest("test_1", as_of=0)], lazy=True)
+    # Perform a filtering operation on both the "test_0" and "test_1" symbols
+    >>> lazy_dfs = lazy_dfs[lazy_dfs["col1"].isin(0, 3, 6, 9)]
+    # Perform a different projection operation on each symbol
+    >>> lazy_dfs = lazy_dfs.split()
+    >>> lazy_dfs[0].apply("new_col", lazy_dfs[0]["col1"] + 1)
+    >>> lazy_dfs[1].apply("new_col", lazy_dfs[1]["col1"] + 2)
+    # Bring together again and perform the same filter on both symbols
+    >>> lazy_dfs = LazyDataFrameCollection(lazy_dfs)
+    >>> lazy_dfs = lazy_dfs[lazy_dfs["new_col"] > 0]
+    # Actual read and processing happens here
+    >>> res = lazy_dfs.collect()
+    """
     def __init__(
             self,
             lazy_dataframes: List[LazyDataFrame],
@@ -364,9 +422,24 @@ class LazyDataFrameCollection(QueryBuilder):
             self._lib = self._lazy_dataframes[0].lib
 
     def split(self) -> List[LazyDataFrame]:
+        """
+        Separate the collection into a list of LazyDataFrames, including any queries already applied to this object.
+
+        Returns
+        -------
+        List[LazyDataFrame]
+        """
         return [LazyDataFrame(self._lib, read_request) for read_request in self._read_requests()]
 
     def collect(self) -> List[Union[VersionedItem, DataError]]:
+        """
+        Read the data and execute any queries applied to this object since the read_batch call.
+
+        Returns
+        -------
+        List[Union[VersionedItem, DataError]]
+            See documentation on `Library.read_batch`.
+        """
         if self._lib is None:
             return []
         return self._lib.read_batch(self._read_requests())
@@ -388,6 +461,30 @@ class LazyDataFrameCollection(QueryBuilder):
 
     def __repr__(self) -> str:
         return self.__str__()
+
+
+def col(name: str) -> ExpressionNode:
+    """
+    Placeholder for referencing columns by name in lazy dataframe operations before the underlying object has been
+    initialised.
+
+    Parameters
+    ----------
+    name : str
+        Column name.
+
+    Returns
+    -------
+    ExpressionNode
+        Reference to named column for use in querying operations.
+
+    Examples
+    --------
+
+    >>> lazy_df = lib.read("test", lazy=True).apply("new_col", col("col1") + col("col2"))
+    >>> df = lazy_df.collect().data
+    """
+    return ExpressionNode.column_ref(name)
 
 
 class StagedDataFinalizeMethod(Enum):
