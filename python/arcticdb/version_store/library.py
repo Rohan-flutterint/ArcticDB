@@ -194,7 +194,10 @@ class WritePayload:
         self.metadata = metadata
 
     def __repr__(self):
-        return f"WritePayload(symbol={self.symbol}, data_id={id(self.data)}, metadata={self.metadata})"
+        res = f"WritePayload(symbol={self.symbol}, data_id={id(self.data)}"
+        res += f", metadata={self.metadata}" if self.metadata is not None else ""
+        res += ")"
+        return res
 
     def __iter__(self):
         yield self.symbol
@@ -267,12 +270,12 @@ class ReadRequest(NamedTuple):
 
     def __repr__(self):
         res = f"ReadRequest(symbol={self.symbol}"
-        res += f",as_of={self.as_of}" if self.as_of is not None else ""
-        res += f",date_range={self.date_range}" if self.date_range is not None else ""
-        res += f",row_range={self.row_range}" if self.row_range is not None else ""
-        res += f",columns={self.columns}" if self.columns is not None else ""
-        res += f",query_builder={self.query_builder}" if self.query_builder is not None else ""
-        res += "))"
+        res += f", as_of={self.as_of}" if self.as_of is not None else ""
+        res += f", date_range={self.date_range}" if self.date_range is not None else ""
+        res += f", row_range={self.row_range}" if self.row_range is not None else ""
+        res += f", columns={self.columns}" if self.columns is not None else ""
+        res += f", query_builder={self.query_builder}" if self.query_builder is not None else ""
+        res += ")"
         return res
 
 
@@ -295,6 +298,12 @@ class ReadInfoRequest(NamedTuple):
 
     symbol: str
     as_of: Optional[AsOf] = None
+
+    def __repr__(self):
+        res = f"ReadInfoRequest(symbol={self.symbol}"
+        res += f", as_of={self.as_of}" if self.as_of is not None else ""
+        res += ")"
+        return res
 
 
 # Placeholder for inlining lazy dataframe operations
