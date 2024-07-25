@@ -377,6 +377,9 @@ class LazyDataFrameCollection(QueryBuilder):
         query_builder_repr = super().__str__()
         return str(self._lazy_dataframes) + (" | " if len(query_builder_repr) else "") + query_builder_repr
 
+    def __repr__(self):
+        return self.__str__()
+
 
 
 class StagedDataFinalizeMethod(Enum):
