@@ -62,7 +62,9 @@ benchmark_files = Path("python/benchmarks").rglob("*.py")
 benchmark_files = [
     str(file.parts[-1].replace(".py", ""))
     for file in benchmark_files
-    if "__init__.py" not in str(file) and "common.py" not in str(file)
+    if "__init__.py" not in str(file)
+    and "common.py" not in str(file)
+    and "non_asv" not in str(file)
 ]
 
 print(

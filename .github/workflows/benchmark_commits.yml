@@ -12,6 +12,7 @@ jobs:
     secrets: inherit
     with:
       job_type: start
+      instance-type: ${{ github.ref != 'refs/heads/master' && 't4g.2xlarge' || 'm6i.4xlarge' }} 
 
   benchmark_commit:
     timeout-minutes: 1200
