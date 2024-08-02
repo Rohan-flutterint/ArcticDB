@@ -12,6 +12,7 @@ jobs:
     secrets: inherit
     with:
       job_type: start
+      instance-type: 'm6i.8xlarge'
 
   benchmark_commit:
     timeout-minutes: 1200
