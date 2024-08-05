@@ -330,7 +330,7 @@ Composite<EntityIds> AggregationClause::process(Composite<EntityIds>&& entity_id
     // Sort procs following row range descending order, as we are going to iterate through them backwards
     std::sort(std::begin(procs), std::end(procs),
               [](const auto& left, const auto& right) {
-                  return left.row_ranges_->at(0)->start() >= right.row_ranges_->at(0)->start();
+                  return left.row_ranges_->at(0)->start() > right.row_ranges_->at(0)->start();
     });
 
     std::vector<GroupingAggregatorData> aggregators_data;
