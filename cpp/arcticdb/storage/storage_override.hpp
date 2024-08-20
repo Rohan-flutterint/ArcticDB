@@ -5,6 +5,7 @@
 
 #include <arcticdb/entity/protobufs.hpp>
 #include <arcticdb/util/pb_util.hpp>
+#include <arcticdb/storage/s3/s3_storage.hpp>
 
 namespace arcticdb::storage {
 
@@ -19,6 +20,8 @@ class S3Override {
     bool use_virtual_addressing_ = false;
     bool https_;
     bool ssl_;
+    arcticdb::proto::storage::AWSAuthMethod aws_auth_;
+    std::string aws_profile_;
 
 public:
     std::string credential_name() const {
@@ -102,6 +105,22 @@ public:
         ssl_ = ssl;
     }
 
+    arcticdb::proto::storage::AWSAuthMethod aws_auth() const {
+        return aws_auth_;
+    }
+
+    void set_aws_auth(arcticdb::proto::storage::AWSAuthMethod aws_auth){
+        aws_auth_ = aws_auth;
+    }
+
+    std::string aws_profile() const {
+        return aws_profile_;
+    }
+
+    void set_aws_profile(std::string_view aws_profile){
+        aws_profile_ = aws_profile;
+    }
+
     void modify_storage_config(arcticdb::proto::storage::VariantStorage& storage) const {
         if(storage.config().Is<arcticdb::proto::s3_storage::Config>()) {
             arcticdb::proto::s3_storage::Config s3_storage;
@@ -117,6 +136,8 @@ public:
             s3_storage.set_ca_cert_dir(ca_cert_dir_);
             s3_storage.set_https(https_);
             s3_storage.set_ssl(ssl_);
+            s3_storage.set_aws_auth(aws_auth_);
+            s3_storage.set_aws_profile(aws_profile_);
 
             util::pack_to_any(s3_storage, *storage.mutable_config());
         }
